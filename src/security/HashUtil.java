@@ -48,22 +48,5 @@ public class HashUtil {
         return signature.verify(signatureBytes);
     }
 
-    // 6. Encode bytes as hex (optional)
-    public static String byteToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
-    }
 
-    // 7. Base64 encode
-    public static String base64Encode(byte[] data) {
-        return Base64.getEncoder().encodeToString(data);
-    }
-
-    // 8. Base64 decode
-    public static byte[] base64Decode(String base64Data) {
-        return Base64.getDecoder().decode(base64Data);
-    }
 }

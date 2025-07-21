@@ -8,9 +8,12 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.nio.file.Files;
 import java.security.SecureRandom;
-import java.util.Base64;
+
 
 public class AESUtil {
+
+    private static final String AES_ALGO = "AES/CBC/PKCS5Padding";
+    private static final int IV_SIZE = 16; // 128 bits
 
     // Generate a new AES SecretKey
     public static SecretKey generateAESKey(int keySize) throws Exception {
@@ -36,73 +39,6 @@ public class AESUtil {
         return new SecretKeySpec(encoded, "AES");
     }
 
-    // Encrypt a file using AES key
-//    public static File encryptFile(File inputFile, SecretKey key) throws Exception {
-//        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-//        IvParameterSpec iv = new IvParameterSpec(new byte[16]); // Zero IV (for testing only)
-//        cipher.init(Cipher.ENCRYPT_MODE, key, iv);
-//
-//
-//        File encryptedFile = new File(inputFile.getAbsolutePath() + ".enc");
-//
-//        try (
-//                FileInputStream fis = new FileInputStream(inputFile);
-//                FileOutputStream fos = new FileOutputStream(encryptedFile)
-//        ) {
-//            byte[] buffer = new byte[4096];
-//            int bytesRead;
-//
-//            while ((bytesRead = fis.read(buffer)) != -1) {
-//                byte[] output = cipher.update(buffer, 0, bytesRead);
-//                if (output != null) {
-//                    fos.write(output);
-//                }
-//            }
-//            byte[] outputBytes = cipher.doFinal();
-//            if (outputBytes != null) {
-//                fos.write(outputBytes);
-//            }
-//        }
-//
-//        return encryptedFile; // Return reference to encrypted file
-//    }
-//
-//    // Decrypt a file using AES key
-//    public static File decryptFile(String encryptedFilePath, SecretKey key) throws Exception {
-//        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
-//        IvParameterSpec iv = new IvParameterSpec(new byte[16]); // Zero IV (for testing only)
-//        cipher.init(Cipher.DECRYPT_MODE, key, iv);
-//
-//
-//        File encryptedFile = new File(encryptedFilePath);
-//        String originalFilePath = encryptedFilePath.replace(".enc", ".dec");
-//        File decryptedFile = new File(originalFilePath);
-//
-//        try (
-//                FileInputStream fis = new FileInputStream(encryptedFile);
-//                FileOutputStream fos = new FileOutputStream(decryptedFile)
-//        ) {
-//            byte[] buffer = new byte[4096];
-//            int bytesRead;
-//
-//            while ((bytesRead = fis.read(buffer)) != -1) {
-//                byte[] output = cipher.update(buffer, 0, bytesRead);
-//                if (output != null) {
-//                    fos.write(output);
-//                }
-//            }
-//            byte[] outputBytes = cipher.doFinal();
-//            if (outputBytes != null) {
-//                fos.write(outputBytes);
-//            }
-//        }
-//
-//        return decryptedFile; // Return reference to decrypted file
-//    }
-
-
-    private static final String AES_ALGO = "AES/CBC/PKCS5Padding";
-    private static final int IV_SIZE = 16; // 128 bits
 
     public static File encryptFile(File inputFile, SecretKey secretKey) throws Exception {
         byte[] iv = new byte[IV_SIZE];

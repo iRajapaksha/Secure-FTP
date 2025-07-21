@@ -70,13 +70,13 @@ public class PayloadUtil {
         SecretKey aesKey = RSAUtil.decryptWithRSAKey(encryptedAESKey, receiverPrivateKey);
         System.out.println("Decrypted aesKey: " + aesKey);
         // 3. Save encrypted file to temp file
-        File encryptedTempFile = new File(outputDirPath + "/temp_encrypted_" + metadata.filename);
+        File encryptedTempFile = new File(outputDirPath + "/temp_encrypted_" + metadata.getFilename());
         Files.write(encryptedTempFile.toPath(), encryptedFileBytes);
 
         String encryptedTempFilePath = encryptedTempFile.toPath().toString();
         // 4. Decrypt file with AES key
         File decryptedFile = AESUtil.decryptFile(encryptedTempFilePath, aesKey);
-        File decryptedTempFile = new File(outputDirPath + "/decrypted_" + metadata.filename);
+        File decryptedTempFile = new File(outputDirPath + "/decrypted_" + metadata.getFilename());
         byte[] decryptedBytes =Files.readAllBytes(decryptedFile.toPath());
         Files.write(decryptedTempFile.toPath(),decryptedBytes);
 

@@ -1,9 +1,33 @@
 package Util;
 
 public class Metadata {
-    public String filename;
-    public long timestamp;
-    public String nonce;
+    private String filename;
+    private long timestamp;
+    private String nonce;
+
+    public String getFilename() {
+        return filename;
+    }
+
+    public void setFilename(String filename) {
+        this.filename = filename;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public String getNonce() {
+        return nonce;
+    }
+
+    public void setNonce(String nonce) {
+        this.nonce = nonce;
+    }
 
     public Metadata(String filename, long timestamp, String nonce) {
         this.filename = filename;

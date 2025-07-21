@@ -71,40 +71,4 @@ public class RSAUtil {
         return new SecretKeySpec(decryptedKeyBytes, "AES");
     }
 
-
-//    public static byte[] encrypt(byte[] data, PublicKey publicKey) throws Exception {
-//        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-//        cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-//        return cipher.doFinal(data);
-//    }
-
-//    public static byte[] decrypt(byte[] encryptedData, PrivateKey privateKey) throws Exception {
-//        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-//        cipher.init(Cipher.DECRYPT_MODE, privateKey);
-//        return cipher.doFinal(encryptedData);
-//    }
-//
-//    // ===================== Sign / Verify =====================
-//    public static byte[] sign(byte[] data, PrivateKey privateKey) throws Exception {
-//        Signature signature = Signature.getInstance("SHA256withRSA");
-//        signature.initSign(privateKey);
-//        signature.update(data);
-//        return signature.sign();
-//    }
-//
-//    public static boolean verify(byte[] data, byte[] signatureBytes, PublicKey publicKey) throws Exception {
-//        Signature signature = Signature.getInstance("SHA256withRSA");
-//        signature.initVerify(publicKey);
-//        signature.update(data);
-//        return signature.verify(signatureBytes);
-//    }
-//
-//    // ===================== Utility (Base64 for display/debug) =====================
-//    public static String toBase64(byte[] data) {
-//        return Base64.getEncoder().encodeToString(data);
-//    }
-//
-//    public static byte[] fromBase64(String base64) {
-//        return Base64.getDecoder().decode(base64);
-//    }
 }

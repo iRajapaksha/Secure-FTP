@@ -6,7 +6,9 @@ import security.RSAUtil;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.File;
+import java.io.*;
+import java.net.InetAddress;
+import java.net.Socket;
 import java.nio.file.Files;
 import java.security.KeyPair;
 import java.security.PrivateKey;
@@ -29,10 +31,20 @@ public class ReceiverApp extends JFrame {
 
     private PublicKey senderPublicKey;
 
+
+    private BufferedReader in;
+    private JButton connectButton;
+    private JButton savePayloadButton;
+    private String folderPath;
+    public static final int port = 9999;
+    private static Socket socket = null;
+    public static InetAddress ipAddress = null;
+
+
     public ReceiverApp() {
         setTitle("Secure File Receiver");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(500, 300);
+        setSize(500, 400);
         setLocationRelativeTo(null);
         setLayout(new GridBagLayout());
 
@@ -40,57 +52,69 @@ public class ReceiverApp extends JFrame {
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+        connectButton = new JButton("Connect to Server");
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 4;
+        add(connectButton, gbc);
+
+        savePayloadButton = new JButton("Save File");
+        gbc.gridx = 3;
+        gbc.gridy = 1;
+        gbc.gridwidth = 3;
+        add(savePayloadButton, gbc);
+
         // Payload File Selection
         JLabel payloadLabel = new JLabel("Payload File:");
         gbc.gridx = 0;
-        gbc.gridy = 0;
+        gbc.gridy = 1;
         add(payloadLabel, gbc);
 
         filePathField = new JTextField();
         filePathField.setEditable(false);
         gbc.gridx = 1;
-        gbc.gridy = 0;
+        gbc.gridy = 1;
         gbc.gridwidth = 2;
         add(filePathField, gbc);
 
         browsePayloadButton = new JButton("Browse");
         gbc.gridx = 3;
-        gbc.gridy = 0;
+        gbc.gridy = 1;
         gbc.gridwidth = 1;
         add(browsePayloadButton, gbc);
 
         // Generate RSA Key Pair
         generateRSAKeyButton = new JButton("Generate RSA Key Pair");
         gbc.gridx = 0;
-        gbc.gridy = 1;
+        gbc.gridy = 2;
         gbc.gridwidth = 4;
         add(generateRSAKeyButton, gbc);
 
         // Decrypt Payload
         decryptButton = new JButton("Decrypt Payload");
         gbc.gridx = 0;
-        gbc.gridy = 2;
+        gbc.gridy = 3;
         gbc.gridwidth = 4;
         add(decryptButton, gbc);
 
         // Verify Sender
         verifySenderButton = new JButton("Verify Sender");
         gbc.gridx = 0;
-        gbc.gridy = 3;
+        gbc.gridy = 4;
         gbc.gridwidth = 4;
         add(verifySenderButton, gbc);
 
         // Verify Integrity
         verifyIntegrityButton = new JButton("Verify Integrity");
         gbc.gridx = 0;
-        gbc.gridy = 4;
+        gbc.gridy = 5;
         gbc.gridwidth = 4;
         add(verifyIntegrityButton, gbc);
 
         // Status Label
         statusLabel = new JLabel("Status: Waiting for input...");
         gbc.gridx = 0;
-        gbc.gridy = 5;
+        gbc.gridy = 6;
         gbc.gridwidth = 4;
         add(statusLabel, gbc);
 
@@ -99,6 +123,36 @@ public class ReceiverApp extends JFrame {
     }
 
     private void setupListeners() {
+        connectButton.addActionListener(e -> {
+            try {
+                socket = new Socket("localhost", 9999);
+                if(socket.isConnected()){
+                    System.out.println("Connected to the server");
+                }else{
+                    System.out.println("No server detected");
+                }
+              //  in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+                // Prompt for destination folder
+                JFileChooser chooser = new JFileChooser();
+                chooser.setDialogTitle("Select Folder to Save Received File");
+                chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+                File destDir = chooser.getSelectedFile();
+                folderPath = destDir.getAbsolutePath();
+                System.out.println("destination directory: " + folderPath);
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                statusLabel.setText("Connection  failed.");
+            }
+        });
+
+        savePayloadButton.addActionListener(e->{
+            saveFile();
+        });
+
         browsePayloadButton.addActionListener(e -> {
             JFileChooser fileChooser = new JFileChooser();
             fileChooser.setDialogTitle("Select Payload JSON File");
@@ -261,6 +315,36 @@ public class ReceiverApp extends JFrame {
         });
 
     }
+
+    private void saveFile() {
+        try {
+            DataInputStream dis = new DataInputStream(socket.getInputStream());
+            // Read file name
+            String fileName = dis.readUTF();
+            // Read file length
+            long fileLength = dis.readLong();
+            // Read file data
+            byte[] fileBytes = new byte[(int) fileLength];
+            dis.readFully(fileBytes);
+
+            // Save received file
+            File outputFile = new File(folderPath, fileName);
+            Files.write(outputFile.toPath(), fileBytes);
+
+            selectedPayloadFile = outputFile;
+
+            System.out.println("Received and saved encrypted payload: " + outputFile.getAbsolutePath());
+
+
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+
+
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(ReceiverApp::new);
