@@ -45,6 +45,7 @@ public class SenderApp extends JFrame {
     private Socket clientSocket;
     private JButton sendButton;
     private File payloadFile;
+    private File inputFile;
 
     public SenderApp() {
         setTitle("Secure File Sender");
@@ -156,9 +157,11 @@ public class SenderApp extends JFrame {
 
         browseButton.addActionListener(e -> {
             JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setDialogTitle("Select file to encrypt");
             int result = fileChooser.showOpenDialog(this);
             if (result == JFileChooser.APPROVE_OPTION) {
-                filePathField.setText(fileChooser.getSelectedFile().getAbsolutePath());
+                inputFile = fileChooser.getSelectedFile();
+                filePathField.setText(inputFile.getAbsolutePath());
                 statusLabel.setText("Status: File selected");
             }
         });
@@ -168,22 +171,7 @@ public class SenderApp extends JFrame {
                 // 1. Generate AES Key
                 aesKey = AESUtil.generateAESKey(128); // You can use 256 if needed
                 System.out.println("AES Key: " + aesKey);
-                // 2. Let user choose where to save the key
-                JFileChooser fileChooser = new JFileChooser();
-                fileChooser.setDialogTitle("Save AES Key");
-                int userSelection = fileChooser.showSaveDialog(this);
-
-                if (userSelection == JFileChooser.APPROVE_OPTION) {
-                    File keyFile = fileChooser.getSelectedFile();
-                    AESUtil.saveKeyToFile(aesKey, keyFile.getAbsolutePath());
-                    statusLabel.setText("Status: AES Key saved at " + keyFile.getName());
-                    JOptionPane.showMessageDialog(this,
-                            "AES key saved successfully:\n" + keyFile.getAbsolutePath(),
-                            "Success",
-                            JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    statusLabel.setText("Status: AES key generation canceled.");
-                }
+                statusLabel.setText("Status: AES key generated successfully");
 
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -201,29 +189,7 @@ public class SenderApp extends JFrame {
                 senderPrivateKey = keyPair.getPrivate();
                 senderPublicKey = keyPair.getPublic();
                 System.out.println("Sender public key: "+ senderPublicKey);
-                System.out.println("Sender private key: "+ senderPrivateKey);
-
-                JFileChooser fileChooser = new JFileChooser();
-                fileChooser.setDialogTitle("Select folder to save RSA Keys");
-                fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-                int userSelection = fileChooser.showSaveDialog(this);
-
-                if (userSelection == JFileChooser.APPROVE_OPTION) {
-                    File directory = fileChooser.getSelectedFile();
-                    String publicKeyPath = directory.getAbsolutePath() + File.separator + "sender_public.key";
-                    String privateKeyPath = directory.getAbsolutePath() + File.separator + "sender_private.key";
-
-                    RSAUtil.savePublicKey(senderPublicKey, publicKeyPath);
-                    RSAUtil.savePrivateKey(senderPrivateKey, privateKeyPath);
-
-                    statusLabel.setText("RSA key pair saved.");
-                    JOptionPane.showMessageDialog(this,
-                            "RSA key pair generated successfully:\n" + publicKeyPath + "\n" + privateKeyPath,
-                            "Success", JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    statusLabel.setText("RSA key generation canceled.");
-                }
-
+                statusLabel.setText("Status: RSA key pair generated.");
             } catch (Exception ex) {
                 ex.printStackTrace();
                 statusLabel.setText("Error generating RSA key pair.");
@@ -235,7 +201,7 @@ public class SenderApp extends JFrame {
 
         uploadPublicKeyButton.addActionListener(e -> {
             JFileChooser fileChooser = new JFileChooser();
-            fileChooser.setDialogTitle("Select Receiver's Public Key (.pem or .der)");
+            fileChooser.setDialogTitle("Select Receiver's Public Key");
 
             int userSelection = fileChooser.showOpenDialog(null);
 
@@ -274,9 +240,8 @@ public class SenderApp extends JFrame {
                     return;
                 }
 
-                File inputFile = new File(filePathField.getText());
                 System.out.println("Input file path: "+ inputFile.getAbsolutePath());
-                Payload payload = PayloadUtil.encryptPayload(inputFile, aesKey, receiverPublicKey, senderPrivateKey);
+                Payload payload = PayloadUtil.encryptPayload(inputFile, aesKey, receiverPublicKey, senderPrivateKey,senderPublicKey);
 
                 // Save payload JSON
                 Gson gson = new Gson();

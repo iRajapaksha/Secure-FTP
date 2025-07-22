@@ -40,7 +40,7 @@ public class AESUtil {
     }
 
 
-    public static File encryptFile(File inputFile, SecretKey secretKey) throws Exception {
+    public static byte[] encryptFile(File inputFile, SecretKey secretKey) throws Exception {
         byte[] iv = new byte[IV_SIZE];
         new SecureRandom().nextBytes(iv);
         IvParameterSpec ivSpec = new IvParameterSpec(iv);
@@ -56,14 +56,16 @@ public class AESUtil {
         outputStream.write(iv);
         outputStream.write(encryptedBytes);
 
-        File encryptedFile = new File(inputFile.getParent(), "enc_" + inputFile.getName());
-        Files.write(encryptedFile.toPath(), outputStream.toByteArray());
+        byte[] encryptedFileBytes = outputStream.toByteArray();
 
-        return encryptedFile;
+//        File encryptedFile = new File(inputFile.getParent(), "enc_" + inputFile.getName());
+//        Files.write(encryptedFile.toPath(), outputStream.toByteArray());
+
+        return encryptedFileBytes;
     }
 
-    public static File decryptFile(String encryptedFilePath, SecretKey secretKey) throws Exception {
-        byte[] fileContent = Files.readAllBytes(new File(encryptedFilePath).toPath());
+    public static byte[] decryptFile(byte[] encryptedFileBytes, SecretKey secretKey) throws Exception {
+        byte[] fileContent = encryptedFileBytes;
 
         byte[] iv = new byte[IV_SIZE];
         System.arraycopy(fileContent, 0, iv, 0, IV_SIZE);
@@ -77,9 +79,8 @@ public class AESUtil {
 
         byte[] decrypted = cipher.doFinal(cipherBytes);
 
-        File decryptedFile = new File(encryptedFilePath + "_dec");
-        Files.write(decryptedFile.toPath(), decrypted);
-        return decryptedFile;
+
+        return decrypted;
     }
 
 }

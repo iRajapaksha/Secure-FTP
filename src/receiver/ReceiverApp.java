@@ -2,6 +2,7 @@ package receiver;
 
 import Util.MetaDataUtil;
 import Util.Payload;
+import Util.PayloadUtil;
 import security.RSAUtil;
 
 import javax.swing.*;
@@ -40,7 +41,7 @@ public class ReceiverApp extends JFrame {
     private static Socket socket = null;
     public static InetAddress ipAddress = null;
 
-
+    PayloadUtil payloadUtil = new PayloadUtil();
     public ReceiverApp() {
         setTitle("Secure File Receiver");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -131,7 +132,6 @@ public class ReceiverApp extends JFrame {
                 }else{
                     System.out.println("No server detected");
                 }
-              //  in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
                 // Prompt for destination folder
                 JFileChooser chooser = new JFileChooser();
@@ -142,6 +142,7 @@ public class ReceiverApp extends JFrame {
                 File destDir = chooser.getSelectedFile();
                 folderPath = destDir.getAbsolutePath();
                 System.out.println("destination directory: " + folderPath);
+                statusLabel.setText("Connected. Output: " + folderPath);
 
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -171,7 +172,7 @@ public class ReceiverApp extends JFrame {
                 receiverPrivateKey = keyPair.getPrivate();
                 receiverPublicKey =keyPair.getPublic();
                 System.out.println("Receiver public key: " + receiverPublicKey);
-                System.out.println("Receiver private key: " + receiverPrivateKey);
+                //System.out.println("Receiver private key: " + receiverPrivateKey);
 
                 JFileChooser chooser = new JFileChooser();
                 chooser.setDialogTitle("Select folder to save RSA keys");
@@ -181,14 +182,14 @@ public class ReceiverApp extends JFrame {
                 if (userSelection == JFileChooser.APPROVE_OPTION) {
                     File dir = chooser.getSelectedFile();
                     String pubPath = dir.getAbsolutePath() + File.separator + "receiver_public.key";
-                    String privPath = dir.getAbsolutePath() + File.separator + "receiver_private.key";
+                   // String privPath = dir.getAbsolutePath() + File.separator + "receiver_private.key";
 
                     RSAUtil.savePublicKey(receiverPublicKey, pubPath);
-                    RSAUtil.savePrivateKey(receiverPrivateKey, privPath);
+                   // RSAUtil.savePrivateKey(receiverPrivateKey, privPath);
 
-                    statusLabel.setText("Status: RSA key pair saved.");
+                    statusLabel.setText("Status: RSA public key saved.");
                     JOptionPane.showMessageDialog(this,
-                            "Keys saved:\n" + pubPath + "\n" + privPath,
+                            "Keys saved:\n" + pubPath + "\n" ,
                             "Success", JOptionPane.INFORMATION_MESSAGE);
                 } else {
                     statusLabel.setText("RSA key generation canceled.");
@@ -206,29 +207,13 @@ public class ReceiverApp extends JFrame {
                     return;
                 }
 
-                // Load sender's public key
-                JFileChooser keyChooser = new JFileChooser();
-                keyChooser.setDialogTitle("Select Sender's Public Key");
-                int result = keyChooser.showOpenDialog(this);
-                if (result != JFileChooser.APPROVE_OPTION) return;
-
-                File senderPublicKeyFile = keyChooser.getSelectedFile();
-                senderPublicKey = RSAUtil.loadPublicKey(senderPublicKeyFile.getAbsolutePath());
-                System.out.println("Sender public key: "+ senderPublicKey);
                 // Parse Payload JSON
                 String json = Files.readString(selectedPayloadFile.toPath());
                 Payload payload = new com.google.gson.Gson().fromJson(json, Payload.class);
                 System.out.println("Encrypted payload: " + payload);
 
-                // Select output directory for decrypted file
-                JFileChooser outputChooser = new JFileChooser();
-                outputChooser.setDialogTitle("Select Folder to Save Decrypted File");
-                outputChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-                if (outputChooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
 
-                File outputDir = outputChooser.getSelectedFile();
-
-                File decryptedFile = Util.PayloadUtil.decryptPayload(payload, receiverPrivateKey, senderPublicKey, outputDir.getAbsolutePath());
+                File decryptedFile = payloadUtil.decryptPayload(payload, receiverPrivateKey, folderPath);
 
                 statusLabel.setText("Status: Decryption successful.");
                 JOptionPane.showMessageDialog(this, "Decrypted file saved at:\n" + decryptedFile.getAbsolutePath());
@@ -242,76 +227,24 @@ public class ReceiverApp extends JFrame {
 
 
         verifySenderButton.addActionListener(e -> {
-            try {
-                if (selectedPayloadFile == null) {
-                    JOptionPane.showMessageDialog(this, "Select a payload file first.");
-                    return;
-                }
-
-                // Load sender's public key
-                JFileChooser chooser = new JFileChooser();
-                chooser.setDialogTitle("Select Sender's Public Key");
-                if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
-
-                File senderKeyFile = chooser.getSelectedFile();
-                var senderPublicKey = RSAUtil.loadPublicKey(senderKeyFile.getAbsolutePath());
-
-                // Load payload
-                String json = Files.readString(selectedPayloadFile.toPath());
-                Payload payload = new com.google.gson.Gson().fromJson(json, Payload.class);
-
-                byte[] hash = Base64.getDecoder().decode(payload.H);
-                byte[] signature = Base64.getDecoder().decode(payload.Signature);
-
-                boolean verified = security.HashUtil.verifySignature(hash, signature, senderPublicKey);
-
-                statusLabel.setText(verified ? "Sender verification successful." : "Sender verification failed.");
-                JOptionPane.showMessageDialog(this,
-                        verified ? "Signature is valid. Sender is verified." : "Signature invalid. Sender could not be verified.",
-                        verified ? "Success" : "Failure",
-                        verified ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.ERROR_MESSAGE);
-
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                statusLabel.setText("Error verifying sender.");
+            boolean isValid = payloadUtil.verifySender();
+            if(isValid){
+                statusLabel.setText("Status: Sender Verified.");
+            }
+            else{
+                statusLabel.setText("Status: Unverified Sender.");
             }
         });
 
 
         verifyIntegrityButton.addActionListener(e -> {
-            try {
-                if (selectedPayloadFile == null) {
-                    JOptionPane.showMessageDialog(this, "Select a payload file first.");
-                    return;
-                }
-
-                // Load payload
-                String json = Files.readString(selectedPayloadFile.toPath());
-                Payload payload = new com.google.gson.Gson().fromJson(json, Payload.class);
-
-                byte[] encryptedFileBytes = Base64.getDecoder().decode(payload.Enc_File);
-                byte[] originalHash = Base64.getDecoder().decode(payload.H);
-                String metadataJson = MetaDataUtil.toJson(payload.metadata);
-                byte[] metadataBytes = metadataJson.getBytes();
-
-                byte[] combined = new byte[encryptedFileBytes.length + metadataBytes.length];
-                System.arraycopy(encryptedFileBytes, 0, combined, 0, encryptedFileBytes.length);
-                System.arraycopy(metadataBytes, 0, combined, encryptedFileBytes.length, metadataBytes.length);
-
-                byte[] recalculatedHash = security.HashUtil.hashBytes(combined);
-
-                boolean matches = java.util.Arrays.equals(originalHash, recalculatedHash);
-
-                statusLabel.setText(matches ? "Integrity verified." : "Integrity check failed.");
-                JOptionPane.showMessageDialog(this,
-                        matches ? "Integrity check passed. File is unmodified." : "Integrity check failed. File may be tampered.",
-                        matches ? "Valid" : "Invalid",
-                        matches ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
-
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                statusLabel.setText("Error verifying integrity.");
-            }
+         boolean isHashEqual = payloadUtil.verifyPayload();
+         if(isHashEqual){
+             statusLabel.setText("Status: Integrity is validated.");
+         }
+         else {
+             statusLabel.setText("Status: Integrity compromised.");
+         }
         });
 
     }
@@ -334,17 +267,13 @@ public class ReceiverApp extends JFrame {
             selectedPayloadFile = outputFile;
 
             System.out.println("Received and saved encrypted payload: " + outputFile.getAbsolutePath());
-
+            statusLabel.setText("Status: File received and saved.");
 
 
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
-
-
-
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(ReceiverApp::new);
