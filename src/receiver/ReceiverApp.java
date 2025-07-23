@@ -1,6 +1,5 @@
 package receiver;
 
-import Util.MetaDataUtil;
 import Util.Payload;
 import Util.PayloadUtil;
 import security.RSAUtil;
@@ -8,38 +7,29 @@ import security.RSAUtil;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
-import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.util.Base64;
+
 
 public class ReceiverApp extends JFrame {
 
-    private JTextField filePathField;
-    private JButton browsePayloadButton;
     private JButton generateRSAKeyButton;
     private JButton decryptButton;
     private JButton verifySenderButton;
     private JButton verifyIntegrityButton;
     private JLabel statusLabel;
-
-    private File selectedPayloadFile;
+    private File encryptedPayloadFile;
     private PrivateKey receiverPrivateKey;
     private PublicKey receiverPublicKey;
-
-    private PublicKey senderPublicKey;
-
-
-    private BufferedReader in;
     private JButton connectButton;
-    private JButton savePayloadButton;
+    private JButton replaySafetyButton;
     private String folderPath;
-    public static final int port = 9999;
+
     private static Socket socket = null;
-    public static InetAddress ipAddress = null;
+
 
     PayloadUtil payloadUtil = new PayloadUtil();
     public ReceiverApp() {
@@ -53,75 +43,63 @@ public class ReceiverApp extends JFrame {
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        connectButton = new JButton("Connect to Server");
+        // Status Label
+        statusLabel = new JLabel("Status: Generate RSA key pair.");
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.gridwidth = 4;
-        add(connectButton, gbc);
-
-        savePayloadButton = new JButton("Save File");
-        gbc.gridx = 3;
-        gbc.gridy = 1;
-        gbc.gridwidth = 3;
-        add(savePayloadButton, gbc);
-
-        // Payload File Selection
-        JLabel payloadLabel = new JLabel("Payload File:");
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        add(payloadLabel, gbc);
-
-        filePathField = new JTextField();
-        filePathField.setEditable(false);
-        gbc.gridx = 1;
-        gbc.gridy = 1;
-        gbc.gridwidth = 2;
-        add(filePathField, gbc);
-
-        browsePayloadButton = new JButton("Browse");
-        gbc.gridx = 3;
-        gbc.gridy = 1;
-        gbc.gridwidth = 1;
-        add(browsePayloadButton, gbc);
+        add(statusLabel, gbc);
 
         // Generate RSA Key Pair
         generateRSAKeyButton = new JButton("Generate RSA Key Pair");
         gbc.gridx = 0;
-        gbc.gridy = 2;
+        gbc.gridy = 1;
         gbc.gridwidth = 4;
         add(generateRSAKeyButton, gbc);
 
+        connectButton = new JButton("Connect to Server");
+        connectButton.setEnabled(false);
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.gridwidth = 4;
+        add(connectButton, gbc);
+
         // Decrypt Payload
         decryptButton = new JButton("Decrypt Payload");
+        decryptButton.setEnabled(false);
         gbc.gridx = 0;
         gbc.gridy = 3;
         gbc.gridwidth = 4;
         add(decryptButton, gbc);
 
-        // Verify Sender
-        verifySenderButton = new JButton("Verify Sender");
+        // Verify Integrity
+        verifyIntegrityButton = new JButton("Verify Integrity");
+        verifyIntegrityButton.setEnabled(false);
         gbc.gridx = 0;
         gbc.gridy = 4;
         gbc.gridwidth = 4;
-        add(verifySenderButton, gbc);
+        add(verifyIntegrityButton, gbc);
 
-        // Verify Integrity
-        verifyIntegrityButton = new JButton("Verify Integrity");
+        // Verify Sender
+        verifySenderButton = new JButton("Verify Sender");
+        verifySenderButton.setEnabled(false);
         gbc.gridx = 0;
         gbc.gridy = 5;
         gbc.gridwidth = 4;
-        add(verifyIntegrityButton, gbc);
+        add(verifySenderButton, gbc);
 
-        // Status Label
-        statusLabel = new JLabel("Status: Waiting for input...");
+        // Verify Sender
+        replaySafetyButton = new JButton("Check Replay Safety");
+        replaySafetyButton.setEnabled(false);
         gbc.gridx = 0;
         gbc.gridy = 6;
         gbc.gridwidth = 4;
-        add(statusLabel, gbc);
+        add(replaySafetyButton, gbc);
 
         setupListeners();
         setVisible(true);
     }
+
 
     private void setupListeners() {
         connectButton.addActionListener(e -> {
@@ -129,6 +107,34 @@ public class ReceiverApp extends JFrame {
                 socket = new Socket("localhost", 9999);
                 if(socket.isConnected()){
                     System.out.println("Connected to the server");
+                    connectButton.setText("Connected");
+
+                    String[] credentials = promptCredentials();
+
+                    if(credentials == null){
+                        statusLabel.setText("Status: Authentication canceled.");
+                    }
+                    else {
+                        String username = credentials[0];
+                        String password = credentials[1];
+
+                        OutputStream os = socket.getOutputStream();
+                        DataOutputStream dos = new DataOutputStream(os);
+
+                        dos.writeUTF(username);
+                        dos.writeUTF(password);
+                        dos.flush();
+
+                        System.out.println("Username and password sent.");
+                    }
+
+                    // Send receiver's public key
+                    OutputStream os = socket.getOutputStream();
+                    ObjectOutputStream oos = new ObjectOutputStream(os);
+                    oos.writeObject(receiverPublicKey.getEncoded());  // Send encoded form of public key
+                    oos.flush();
+                    System.out.println("Public key sent to sender.");
+
                 }else{
                     System.out.println("No server detected");
                 }
@@ -142,7 +148,8 @@ public class ReceiverApp extends JFrame {
                 File destDir = chooser.getSelectedFile();
                 folderPath = destDir.getAbsolutePath();
                 System.out.println("destination directory: " + folderPath);
-                statusLabel.setText("Connected. Output: " + folderPath);
+                statusLabel.setText("Waiting for encrypted file...");
+                new Thread(this::listenForFile).start();
 
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -150,21 +157,6 @@ public class ReceiverApp extends JFrame {
             }
         });
 
-        savePayloadButton.addActionListener(e->{
-            saveFile();
-        });
-
-        browsePayloadButton.addActionListener(e -> {
-            JFileChooser fileChooser = new JFileChooser();
-            fileChooser.setDialogTitle("Select Payload JSON File");
-            int result = fileChooser.showOpenDialog(this);
-            if (result == JFileChooser.APPROVE_OPTION) {
-                selectedPayloadFile = fileChooser.getSelectedFile();
-                filePathField.setText(selectedPayloadFile.getAbsolutePath());
-                statusLabel.setText("Status: Payload file selected.");
-                System.out.println("Selected File path: " + selectedPayloadFile.getAbsolutePath());
-            }
-        });
 
         generateRSAKeyButton.addActionListener(e -> {
             try {
@@ -172,28 +164,9 @@ public class ReceiverApp extends JFrame {
                 receiverPrivateKey = keyPair.getPrivate();
                 receiverPublicKey =keyPair.getPublic();
                 System.out.println("Receiver public key: " + receiverPublicKey);
-                //System.out.println("Receiver private key: " + receiverPrivateKey);
+                statusLabel.setText("Connect to the server.");
+                connectButton.setEnabled(true);
 
-                JFileChooser chooser = new JFileChooser();
-                chooser.setDialogTitle("Select folder to save RSA keys");
-                chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-
-                int userSelection = chooser.showSaveDialog(this);
-                if (userSelection == JFileChooser.APPROVE_OPTION) {
-                    File dir = chooser.getSelectedFile();
-                    String pubPath = dir.getAbsolutePath() + File.separator + "receiver_public.key";
-                   // String privPath = dir.getAbsolutePath() + File.separator + "receiver_private.key";
-
-                    RSAUtil.savePublicKey(receiverPublicKey, pubPath);
-                   // RSAUtil.savePrivateKey(receiverPrivateKey, privPath);
-
-                    statusLabel.setText("Status: RSA public key saved.");
-                    JOptionPane.showMessageDialog(this,
-                            "Keys saved:\n" + pubPath + "\n" ,
-                            "Success", JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    statusLabel.setText("RSA key generation canceled.");
-                }
             } catch (Exception ex) {
                 statusLabel.setText("Error: Failed to generate RSA keys.");
                 ex.printStackTrace();
@@ -202,20 +175,23 @@ public class ReceiverApp extends JFrame {
 
         decryptButton.addActionListener(e -> {
             try {
-                if (selectedPayloadFile == null) {
+                if (encryptedPayloadFile == null) {
                     JOptionPane.showMessageDialog(this, "Select a payload file first.");
                     return;
                 }
 
                 // Parse Payload JSON
-                String json = Files.readString(selectedPayloadFile.toPath());
+                String json = Files.readString(encryptedPayloadFile.toPath());
                 Payload payload = new com.google.gson.Gson().fromJson(json, Payload.class);
                 System.out.println("Encrypted payload: " + payload);
 
 
                 File decryptedFile = payloadUtil.decryptPayload(payload, receiverPrivateKey, folderPath);
 
-                statusLabel.setText("Status: Decryption successful.");
+                statusLabel.setText("Status: Decryption successful. Verify integrity.");
+                verifyIntegrityButton.setEnabled(true);
+                verifySenderButton.setEnabled(true);
+                replaySafetyButton.setEnabled(true);
                 JOptionPane.showMessageDialog(this, "Decrypted file saved at:\n" + decryptedFile.getAbsolutePath());
 
             } catch (Exception ex) {
@@ -224,7 +200,6 @@ public class ReceiverApp extends JFrame {
                 JOptionPane.showMessageDialog(this, "Failed to decrypt: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
-
 
         verifySenderButton.addActionListener(e -> {
             boolean isValid = payloadUtil.verifySender();
@@ -236,44 +211,85 @@ public class ReceiverApp extends JFrame {
             }
         });
 
-
         verifyIntegrityButton.addActionListener(e -> {
          boolean isHashEqual = payloadUtil.verifyPayload();
          if(isHashEqual){
-             statusLabel.setText("Status: Integrity is validated.");
+             statusLabel.setText("Status: Integrity confirmed. Verify sender.");
          }
          else {
              statusLabel.setText("Status: Integrity compromised.");
          }
         });
 
+        replaySafetyButton.addActionListener(e ->{
+            boolean isReplaySafe = payloadUtil.isReplaySafe();
+            if(isReplaySafe){
+                statusLabel.setText("Replay safety confirmed.");
+            }
+            else{
+                statusLabel.setText("Replay attack detected.");
+            }
+        });
+
     }
 
-    private void saveFile() {
+    private void listenForFile() {
         try {
             DataInputStream dis = new DataInputStream(socket.getInputStream());
-            // Read file name
-            String fileName = dis.readUTF();
-            // Read file length
-            long fileLength = dis.readLong();
-            // Read file data
-            byte[] fileBytes = new byte[(int) fileLength];
-            dis.readFully(fileBytes);
+            while (true) {
+                // Wait for file name
+                String fileName = dis.readUTF();
+                long fileLength = dis.readLong();
+                byte[] fileBytes = new byte[(int) fileLength];
+                dis.readFully(fileBytes);
 
-            // Save received file
-            File outputFile = new File(folderPath, fileName);
-            Files.write(outputFile.toPath(), fileBytes);
+                File outputFile = new File(folderPath, fileName);
+                Files.write(outputFile.toPath(), fileBytes);
+                encryptedPayloadFile = outputFile;
+                System.out.println("Received and saved encrypted payload: " + outputFile.getAbsolutePath());
 
-            selectedPayloadFile = outputFile;
-
-            System.out.println("Received and saved encrypted payload: " + outputFile.getAbsolutePath());
-            statusLabel.setText("Status: File received and saved.");
-
-
+                // Update GUI in the Swing thread
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(this, "New file received: " + fileName);
+                    statusLabel.setText("Status: File received. Ready to decrypt.");
+                });
+                decryptButton.setEnabled(true);
+            }
         } catch (IOException e) {
             e.printStackTrace();
+            SwingUtilities.invokeLater(() ->
+                    statusLabel.setText("Error receiving file or connection closed.")
+            );
         }
     }
+
+    private String[] promptCredentials() {
+        JTextField usernameField = new JTextField();
+        JPasswordField passwordField = new JPasswordField();
+
+        JPanel panel = new JPanel(new GridLayout(2, 2));
+        panel.add(new JLabel("Username:"));
+        panel.add(usernameField);
+        panel.add(new JLabel("Password:"));
+        panel.add(passwordField);
+
+        int result = JOptionPane.showConfirmDialog(
+                this,
+                panel,
+                "Enter Credentials",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result == JOptionPane.OK_OPTION) {
+            String username = usernameField.getText();
+            String password = new String(passwordField.getPassword());
+            return new String[]{username, password};
+        } else {
+            return null;
+        }
+    }
+
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(ReceiverApp::new);

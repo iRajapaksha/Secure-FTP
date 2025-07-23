@@ -13,6 +13,8 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
+import java.util.HashSet;
+import java.util.Set;
 
 public class PayloadUtil {
 
@@ -30,33 +32,33 @@ public class PayloadUtil {
                                          PrivateKey senderPrivateKey,
                                          PublicKey senderPublicKey) throws Exception {
 
-        // 1. Read file bytes
+        // Read file bytes
         byte[] fileBytes = Files.readAllBytes(inputFile.toPath());
 
-        // 2. Encrypt file using AES key
+        // Encrypt file using AES key
         byte[] encryptedFileBytes = AESUtil.encryptFile( inputFile,aesKey);
 
-        // 3. Generate metadata
+        // Generate metadata
         Metadata metadata = MetaDataUtil.generateMetadata(inputFile.getName());
         String metadataJson = MetaDataUtil.toJson(metadata);
         System.out.println("Generated metadata: " + metadataJson);
         byte[] metadataBytes = metadataJson.getBytes();
 
-        // 4. Hash (Enc_File + metadata)
+        // Hash (Enc_File + metadata)
        // byte[] encryptedFileBytes = Files.readAllBytes(encryptedFile.toPath());
         byte[] combined = new byte[encryptedFileBytes.length + metadataBytes.length];
         System.arraycopy(encryptedFileBytes, 0, combined, 0, encryptedFileBytes.length);
         System.arraycopy(metadataBytes, 0, combined, encryptedFileBytes.length, metadataBytes.length);
         byte[] hash = HashUtil.hashBytes(combined);
 
-        // 5. Sign hash with sender's private key
+        // Sign hash with sender's private key
         byte[] signature = HashUtil.signHash(hash, senderPrivateKey);
 
-        // 6. Encrypt AES key using receiver’s RSA public key
+        // Encrypt AES key using receiver’s RSA public key
         byte[] encryptedAESKey = RSAUtil.encryptWithRSAKey(aesKey, receiverPublicKey);
 
 
-        // 7. Encode all to Base64 and return Payload
+        // Encode all to Base64 and return Payload
         return new Payload(
                 Base64.getEncoder().encodeToString(encryptedFileBytes),
                 Base64.getEncoder().encodeToString(encryptedAESKey),
@@ -70,7 +72,7 @@ public class PayloadUtil {
                                       PrivateKey receiverPrivateKey,
                                       String outputDirPath) throws Exception {
 
-        // 1. Decode Base64 fields
+        // Decode Base64 fields
         this.encryptedFileBytes = Base64.getDecoder().decode(payload.Enc_File);
         byte[] encryptedAESKey = Base64.getDecoder().decode(payload.Enc_K);
         this.receivedHash = Base64.getDecoder().decode(payload.H);
@@ -83,10 +85,10 @@ public class PayloadUtil {
         KeyFactory  keyFactory = KeyFactory.getInstance("RSA");
         this.senderPublicKey = keyFactory.generatePublic(keySpec);
 
-        // 2. Decrypt AES key with receiver’s private RSA key
+        // Decrypt AES key with receiver’s private RSA key
         SecretKey aesKey = RSAUtil.decryptWithRSAKey(encryptedAESKey, receiverPrivateKey);
 
-        // 4. Decrypt file with AES key
+        // Decrypt file with AES key
         byte[] decryptedBytes = AESUtil.decryptFile(encryptedFileBytes, aesKey);
 
         File decryptedFile = new File(outputDirPath + "/decrypted_" + metadata.getFilename());
@@ -126,6 +128,30 @@ public class PayloadUtil {
             e.printStackTrace();
             return false;
         }
+
+    }
+
+
+    private static final long MAX_TIME_DIFF_MS = 5 * 60 * 1000;
+
+    public boolean isReplaySafe(){
+        boolean isTimestampValid;
+        boolean isNonceValid = true;
+
+        long currentTime = System.currentTimeMillis();
+        long messageTime = metadata.getTimestamp();
+        isTimestampValid = Math.abs(currentTime - messageTime) <= MAX_TIME_DIFF_MS;
+
+        {
+            if ( Nonce.isNonceUsed(metadata.getNonce())) {
+                isNonceValid = false;
+                System.out.println("Reused nonce detected");// Replay detected
+            }
+
+        }
+        return isNonceValid && isTimestampValid;
+
+
 
     }
 

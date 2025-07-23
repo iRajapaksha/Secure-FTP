@@ -9,32 +9,32 @@ import java.util.Set;
 public class Nonce {
 
     private static final Set<String> usedNonces = new HashSet<>();
-    private static final String NONCE_FILE = "used_nonces.txt"; // file-based persistence (optional)
+    private static final String NONCE_FILE = "used_nonces.txt";
 
     static {
         // Load nonces from disk at startup
         loadNoncesFromDisk();
     }
 
-    // 1. Generate a random 128-bit (16-byte) nonce
+    // Generate a random 128-bit nonce
     public static String generateNonce() {
-        byte[] nonceBytes = new byte[16]; // 128-bit
+        byte[] nonceBytes = new byte[16];
         new SecureRandom().nextBytes(nonceBytes);
         return Base64.getEncoder().encodeToString(nonceBytes);
     }
 
-    // 2. Check if nonce is already used
+    // Check if nonce is already used
     public static boolean isNonceUsed(String nonce) {
         return usedNonces.contains(nonce);
     }
 
-    // 3. Mark nonce as used
+    // Mark nonce as used
     public static void markNonceAsUsed(String nonce) {
         usedNonces.add(nonce);
-        saveNoncesToDisk(); // optional: auto-save on each new nonce
+        saveNoncesToDisk(); //
     }
 
-    // 4. Save used nonces to disk
+    // Save used nonces to disk
     private static void saveNoncesToDisk() {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(NONCE_FILE))) {
             for (String nonce : usedNonces) {
@@ -46,7 +46,7 @@ public class Nonce {
         }
     }
 
-    // 5. Load used nonces from disk
+    // Load used nonces from disk
     private static void loadNoncesFromDisk() {
         File file = new File(NONCE_FILE);
         if (!file.exists()) return;
@@ -61,7 +61,7 @@ public class Nonce {
         }
     }
 
-    // 6. (Optional) Clear nonce history
+    //  Clear nonce history
     public static void clearNonceHistory() {
         usedNonces.clear();
         new File(NONCE_FILE).delete();

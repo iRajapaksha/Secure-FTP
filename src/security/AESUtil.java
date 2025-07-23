@@ -58,9 +58,6 @@ public class AESUtil {
 
         byte[] encryptedFileBytes = outputStream.toByteArray();
 
-//        File encryptedFile = new File(inputFile.getParent(), "enc_" + inputFile.getName());
-//        Files.write(encryptedFile.toPath(), outputStream.toByteArray());
-
         return encryptedFileBytes;
     }
 

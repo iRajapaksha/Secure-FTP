@@ -3,11 +3,11 @@ package security;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.util.Base64;
+
 
 public class HashUtil {
 
-    // 1. Hash file content using SHA-256
+    // Hash file content using SHA-256
     public static byte[] hashFile(String filePath) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         FileInputStream fis = new FileInputStream(filePath);
@@ -21,18 +21,18 @@ public class HashUtil {
         return digest.digest();
     }
 
-    // 2. Hash any byte array (e.g., file + metadata)
+    // Hash any byte array
     public static byte[] hashBytes(byte[] data) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         return digest.digest(data);
     }
 
-    // 3. Hash a string (e.g., metadata JSON)
+    // Hash a string
     public static byte[] hashString(String data) throws Exception {
         return hashBytes(data.getBytes(StandardCharsets.UTF_8));
     }
 
-    // 4. Sign hash using private key
+    // Sign hash using private key
     public static byte[] signHash(byte[] hash, PrivateKey privateKey) throws Exception {
         Signature signature = Signature.getInstance("SHA256withRSA");
         signature.initSign(privateKey);
@@ -40,7 +40,7 @@ public class HashUtil {
         return signature.sign();
     }
 
-    // 5. Verify hash signature using public key
+    //  Verify hash signature using public key
     public static boolean verifySignature(byte[] hash, byte[] signatureBytes, PublicKey publicKey) throws Exception {
         Signature signature = Signature.getInstance("SHA256withRSA");
         signature.initVerify(publicKey);

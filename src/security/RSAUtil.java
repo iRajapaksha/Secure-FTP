@@ -12,14 +12,12 @@ public class RSAUtil {
 
     private static final String RSA_ALGORITHM = "RSA";
 
-    // ===================== Key Generation =====================
     public static KeyPair generateRSAKeyPair(int keySize) throws NoSuchAlgorithmException {
         KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
         generator.initialize(keySize);
         return generator.generateKeyPair();
     }
 
-    // ===================== Save Keys to Files =====================
     public static void savePublicKey(PublicKey publicKey, String filePath) throws IOException {
         X509EncodedKeySpec x509EncodedKeySpec = new X509EncodedKeySpec(publicKey.getEncoded());
         try (FileOutputStream fos = new FileOutputStream(filePath)) {
@@ -34,7 +32,6 @@ public class RSAUtil {
         }
     }
 
-    // ===================== Load Keys from Files =====================
     public static PublicKey loadPublicKey(String filePath) throws Exception {
         byte[] keyBytes = readFile(filePath);
         X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
@@ -53,7 +50,7 @@ public class RSAUtil {
         return java.nio.file.Files.readAllBytes(new File(path).toPath());
     }
 
-    // ===================== Encryption / Decryption =====================
+
 
 
     // Encrypt AES key with RSA Public Key
