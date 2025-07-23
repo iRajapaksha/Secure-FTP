@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Secure FTP:jar2">
+    <output-path>$PROJECT_DIR$/out/artifacts/Secure_FTP_jar2</output-path>
+    <root id="archive" name="Secure FTP.jar">
+      <element id="module-output" name="Secure FTP" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/lib/gson-2.13.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/lib/error_prone_annotations-2.38.0.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
