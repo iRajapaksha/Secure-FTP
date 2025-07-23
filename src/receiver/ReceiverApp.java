@@ -64,13 +64,13 @@ public class ReceiverApp extends JFrame {
         gbc.gridwidth = 4;
         add(connectButton, gbc);
 
-        // Decrypt Payload
-        decryptButton = new JButton("Decrypt Payload");
-        decryptButton.setEnabled(false);
+        // Verify Sender
+        verifySenderButton = new JButton("Verify Sender");
+        verifySenderButton.setEnabled(false);
         gbc.gridx = 0;
         gbc.gridy = 3;
         gbc.gridwidth = 4;
-        add(decryptButton, gbc);
+        add(verifySenderButton, gbc);
 
         // Verify Integrity
         verifyIntegrityButton = new JButton("Verify Integrity");
@@ -80,26 +80,27 @@ public class ReceiverApp extends JFrame {
         gbc.gridwidth = 4;
         add(verifyIntegrityButton, gbc);
 
-        // Verify Sender
-        verifySenderButton = new JButton("Verify Sender");
-        verifySenderButton.setEnabled(false);
-        gbc.gridx = 0;
-        gbc.gridy = 5;
-        gbc.gridwidth = 4;
-        add(verifySenderButton, gbc);
-
-        // Verify Sender
+        // Check Replay Safety
         replaySafetyButton = new JButton("Check Replay Safety");
         replaySafetyButton.setEnabled(false);
         gbc.gridx = 0;
-        gbc.gridy = 6;
+        gbc.gridy = 5;
         gbc.gridwidth = 4;
         add(replaySafetyButton, gbc);
+
+        // Decrypt Payload
+        decryptButton = new JButton("Decrypt Payload");
+        decryptButton.setEnabled(false);
+        gbc.gridx = 0;
+        gbc.gridy = 6;
+        gbc.gridwidth = 4;
+        add(decryptButton, gbc);
 
         setupListeners();
         setVisible(true);
     }
 
+    private boolean isSenderVerified, isIntegrityVerified, isReplaySafe;
 
     private void setupListeners() {
         connectButton.addActionListener(e -> {
@@ -157,7 +158,6 @@ public class ReceiverApp extends JFrame {
             }
         });
 
-
         generateRSAKeyButton.addActionListener(e -> {
             try {
                 KeyPair keyPair = RSAUtil.generateRSAKeyPair(2048);
@@ -174,47 +174,49 @@ public class ReceiverApp extends JFrame {
         });
 
         decryptButton.addActionListener(e -> {
+
             try {
-                if (encryptedPayloadFile == null) {
-                    JOptionPane.showMessageDialog(this, "Select a payload file first.");
-                    return;
-                }
-
-                // Parse Payload JSON
-                String json = Files.readString(encryptedPayloadFile.toPath());
-                Payload payload = new com.google.gson.Gson().fromJson(json, Payload.class);
-                System.out.println("Encrypted payload: " + payload);
-
-
-                File decryptedFile = payloadUtil.decryptPayload(payload, receiverPrivateKey, folderPath);
-
-                statusLabel.setText("Status: Decryption successful. Verify integrity.");
-                verifyIntegrityButton.setEnabled(true);
-                verifySenderButton.setEnabled(true);
-                replaySafetyButton.setEnabled(true);
+                File decryptedFile = payloadUtil.decryptPayload(receiverPrivateKey, folderPath);
+                statusLabel.setText("Status: Decryption successful.");
                 JOptionPane.showMessageDialog(this, "Decrypted file saved at:\n" + decryptedFile.getAbsolutePath());
 
             } catch (Exception ex) {
-                ex.printStackTrace();
-                statusLabel.setText("Error during decryption.");
-                JOptionPane.showMessageDialog(this, "Failed to decrypt: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                throw new RuntimeException(ex);
             }
+
         });
 
         verifySenderButton.addActionListener(e -> {
-            boolean isValid = payloadUtil.verifySender();
-            if(isValid){
-                statusLabel.setText("Status: Sender Verified.");
+            try {
+                if (encryptedPayloadFile == null) {
+                    JOptionPane.showMessageDialog(this, "Encrypted file not received..");
+                    return;
+                }
+                // Parse Payload JSON
+                String json = Files.readString(encryptedPayloadFile.toPath());
+                Payload payload = new com.google.gson.Gson().fromJson(json, Payload.class);
+                isSenderVerified = payloadUtil.verifySender(payload);
+                if(isSenderVerified){
+                    statusLabel.setText("Status: Sender Verified.");
+                    verifyIntegrityButton.setEnabled(true);
+                    replaySafetyButton.setEnabled(true);
+                    updateDecryptButton();
+                }
+                else{
+                    statusLabel.setText("Status: Unverified Sender.");
+                }
             }
-            else{
-                statusLabel.setText("Status: Unverified Sender.");
+            catch (Exception ex){
+                ex.printStackTrace();
             }
+
         });
 
         verifyIntegrityButton.addActionListener(e -> {
-         boolean isHashEqual = payloadUtil.verifyPayload();
-         if(isHashEqual){
-             statusLabel.setText("Status: Integrity confirmed. Verify sender.");
+         isIntegrityVerified = payloadUtil.verifyPayload();
+         if(isIntegrityVerified){
+             statusLabel.setText("Status: Integrity confirmed.");
+             updateDecryptButton();
          }
          else {
              statusLabel.setText("Status: Integrity compromised.");
@@ -222,9 +224,10 @@ public class ReceiverApp extends JFrame {
         });
 
         replaySafetyButton.addActionListener(e ->{
-            boolean isReplaySafe = payloadUtil.isReplaySafe();
+            isReplaySafe = payloadUtil.isReplaySafe();
             if(isReplaySafe){
                 statusLabel.setText("Replay safety confirmed.");
+                updateDecryptButton();
             }
             else{
                 statusLabel.setText("Replay attack detected.");
@@ -233,6 +236,9 @@ public class ReceiverApp extends JFrame {
 
     }
 
+    private void updateDecryptButton(){
+        decryptButton.setEnabled(isIntegrityVerified && isSenderVerified && isReplaySafe);
+    }
     private void listenForFile() {
         try {
             DataInputStream dis = new DataInputStream(socket.getInputStream());
@@ -251,9 +257,9 @@ public class ReceiverApp extends JFrame {
                 // Update GUI in the Swing thread
                 SwingUtilities.invokeLater(() -> {
                     JOptionPane.showMessageDialog(this, "New file received: " + fileName);
-                    statusLabel.setText("Status: File received. Ready to decrypt.");
+                    statusLabel.setText("Status: Verify the sender.");
                 });
-                decryptButton.setEnabled(true);
+                verifySenderButton.setEnabled(true);
             }
         } catch (IOException e) {
             e.printStackTrace();

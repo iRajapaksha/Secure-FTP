@@ -68,22 +68,11 @@ public class PayloadUtil {
                 Base64.getEncoder().encodeToString(senderPublicKey.getEncoded())
         );
     }
-    public  File decryptPayload(Payload payload,
-                                      PrivateKey receiverPrivateKey,
+
+    private byte[] encryptedAESKey;
+    private byte[] senderPublicKeyBytes;
+    public  File decryptPayload(PrivateKey receiverPrivateKey,
                                       String outputDirPath) throws Exception {
-
-        // Decode Base64 fields
-        this.encryptedFileBytes = Base64.getDecoder().decode(payload.Enc_File);
-        byte[] encryptedAESKey = Base64.getDecoder().decode(payload.Enc_K);
-        this.receivedHash = Base64.getDecoder().decode(payload.H);
-        this.receivedSignature= Base64.getDecoder().decode(payload.Signature);
-        byte[] senderPublicKeyBytes = Base64.getDecoder().decode(payload.SenderPublicKey);
-        this.metadata = payload.metadata;
-        System.out.println("Decrypted metadata: " + metadata);
-
-        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(senderPublicKeyBytes);
-        KeyFactory  keyFactory = KeyFactory.getInstance("RSA");
-        this.senderPublicKey = keyFactory.generatePublic(keySpec);
 
         // Decrypt AES key with receiver’s private RSA key
         SecretKey aesKey = RSAUtil.decryptWithRSAKey(encryptedAESKey, receiverPrivateKey);
@@ -91,9 +80,9 @@ public class PayloadUtil {
         // Decrypt file with AES key
         byte[] decryptedBytes = AESUtil.decryptFile(encryptedFileBytes, aesKey);
 
+        // Save decrypted file
         File decryptedFile = new File(outputDirPath + "/decrypted_" + metadata.getFilename());
         Files.write(decryptedFile.toPath(), decryptedBytes);
-
 
         return decryptedFile;
     }
@@ -120,10 +109,23 @@ public class PayloadUtil {
         }
 
     }
-    public  boolean verifySender(){
+    public  boolean verifySender(Payload payload){
+
+        // Decode Base64 fields
+        this.encryptedFileBytes = Base64.getDecoder().decode(payload.Enc_File);
+        this.encryptedAESKey = Base64.getDecoder().decode(payload.Enc_K);
+        this.receivedHash = Base64.getDecoder().decode(payload.H);
+        this.receivedSignature= Base64.getDecoder().decode(payload.Signature);
+        this.senderPublicKeyBytes = Base64.getDecoder().decode(payload.SenderPublicKey);
+        this.metadata = payload.metadata;
+
         try{
-            boolean isSignatureValid = HashUtil.verifySignature(receivedHash, receivedSignature, senderPublicKey);
-            return isSignatureValid;
+            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(senderPublicKeyBytes);
+            KeyFactory  keyFactory = KeyFactory.getInstance("RSA");
+            this.senderPublicKey = keyFactory.generatePublic(keySpec);
+
+            return  HashUtil.verifySignature(receivedHash, receivedSignature, senderPublicKey);
+
         } catch (Exception e) {
             e.printStackTrace();
             return false;
